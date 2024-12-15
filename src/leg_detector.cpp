@@ -148,7 +148,7 @@ private:
             marker.color.g = 0.0f;
             marker.color.b = 0.0f;
             marker.color.a = 1.0; // 不透明度
-            marker.lifetime = rclcpp::Duration(0.5); // 永続的なマーカー
+            marker.lifetime = rclcpp::Duration(std::chrono::duration<double>(0.5));
 
             marker_array.markers.push_back(marker);
             cluster_id++;
