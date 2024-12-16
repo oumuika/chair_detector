@@ -14,11 +14,6 @@
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/segmentation/extract_clusters.h> // EuclideanClusterExtractionのため
 #include <visualization_msgs/msg/marker_array.hpp>
-#include <visualization_msgs/msg/marker.hpp>
-
-
-
-
 
 class PointCloudClusterNode : public rclcpp::Node {
 public:
@@ -29,10 +24,10 @@ public:
             std::bind(&PointCloudClusterNode::pointCloudCallback, this, std::placeholders::_1));
 
         point_cloud_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/filtered_point_cloud", 10);
-        marker_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("/cluster_centers", 10); // マーカー用パブリッシャー追加
+        marker_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("/chair_legs", 10); // マーカー用パブリッシャー追加
 
         timer_ = this->create_wall_timer(
-            std::chrono::milliseconds(500), // 100msごとに処理を実行
+            std::chrono::milliseconds(100), // 100msごとに処理を実行
             std::bind(&PointCloudClusterNode::processPointClouds, this));
     }
 
@@ -59,9 +54,9 @@ private:
         // DBSCANクラスタリング
         std::vector<pcl::PointIndices> cluster_indices;
         pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
-        ec.setClusterTolerance(0.3);  // 距離の閾値（50mm）
-        ec.setMinClusterSize(2);        // クラスタ内の最小点数
-        ec.setMaxClusterSize(10);      // クラスタ内の最大点数
+        ec.setClusterTolerance(0.05);  // 距離の閾値（50mm）
+        ec.setMinClusterSize(3);        // クラスタ内の最小点数
+        ec.setMaxClusterSize(30);      // クラスタ内の最大点数
         ec.setSearchMethod(tree);
         ec.setInputCloud(cloud);
         ec.extract(cluster_indices);
@@ -128,9 +123,9 @@ private:
     }
 
     void publishClusterCenters(const std::vector<pcl::PointXYZ>& cluster_centers) {
-    visualization_msgs::msg::MarkerArray marker_array;
+        visualization_msgs::msg::MarkerArray marker_array;
 
-    int cluster_id = 0;
+        int cluster_id = 0;
         for (const auto& center : cluster_centers) {
             visualization_msgs::msg::Marker marker;
             marker.header.frame_id = "laser"; // 適切なフレームを指定

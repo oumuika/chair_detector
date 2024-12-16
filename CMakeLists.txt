@@ -43,7 +43,7 @@ add_executable(scan_to_pointcloud src/scan_to_pointcloud.cpp)
 # リンカにライブラリを指定
 ament_target_dependencies(scan_to_pointcloud rclcpp sensor_msgs laser_geometry)
 
-add_executable(chair_detector src/chair_detector.cpp)
+add_executable(chair_detector src/chair_detector_v2.cpp)
 ament_target_dependencies(chair_detector
   rclcpp
   visualization_msgs
