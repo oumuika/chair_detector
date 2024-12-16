@@ -27,7 +27,7 @@ include_directories(
 )
 
 
-add_executable(leg_detector src/leg_detector.cpp)
+add_executable(leg_detector src/leg_detector_v2.cpp)
 target_link_libraries(leg_detector 
   ${PCL_LIBRARIES}
 )
@@ -38,14 +38,17 @@ ament_target_dependencies(leg_detector
   visualization_msgs
 )
 
-# 実行可能なノードのソースファイルを追加
 add_executable(scan_to_pointcloud src/scan_to_pointcloud.cpp)
-# リンカにライブラリを指定
 ament_target_dependencies(scan_to_pointcloud rclcpp sensor_msgs laser_geometry)
 
 add_executable(chair_detector src/chair_detector_v2.cpp)
+target_link_libraries(chair_detector 
+  ${PCL_LIBRARIES}
+)
 ament_target_dependencies(chair_detector
   rclcpp
+  sensor_msgs
+  pcl_conversions
   visualization_msgs
 )
 
@@ -55,6 +58,11 @@ install(TARGETS
   leg_detector
   chair_detector
   DESTINATION lib/${PROJECT_NAME}
+)
+
+install(DIRECTORY
+  launch
+  DESTINATION share/${PROJECT_NAME}/
 )
 
 ament_package()

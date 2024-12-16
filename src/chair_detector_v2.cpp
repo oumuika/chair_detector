@@ -1,42 +1,45 @@
 #include <rclcpp/rclcpp.hpp>
-#include <visualization_msgs/msg/marker_array.hpp>
-#include <visualization_msgs/msg/marker.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
 #include <vector>
 #include <cmath>
 #include <algorithm>
 
-using visualization_msgs::msg::MarkerArray;
-using visualization_msgs::msg::Marker;
+using sensor_msgs::msg::PointCloud2;
+using geometry_msgs::msg::PoseStamped;
 
 class ChairRecognitionNode : public rclcpp::Node {
 public:
     ChairRecognitionNode() : Node("chair_recognition") {
-        marker_subscriber_ = this->create_subscription<MarkerArray>(
+        pointcloud_subscriber_ = this->create_subscription<PointCloud2>(
             "chair_legs", 10, std::bind(&ChairRecognitionNode::legsCallback, this, std::placeholders::_1)
         );
-        chair_publisher_ = this->create_publisher<MarkerArray>("recognized_chairs", 10);
+        chair_publisher_ = this->create_publisher<PoseStamped>("chair_pose", 10);
     }
 
 private:
-    void legsCallback(const MarkerArray::SharedPtr msg) {
-        // Extract leg positions from the incoming MarkerArray
+    void legsCallback(const PointCloud2::SharedPtr msg) {
+        // Convert PointCloud2 to pcl::PointCloud
+        pcl::PointCloud<pcl::PointXYZ> pcl_cloud;
+        pcl::fromROSMsg(*msg, pcl_cloud);
+
+        // Extract leg positions
         std::vector<std::pair<double, double>> leg_positions;
-        for (const auto &marker : msg->markers) {
-            leg_positions.emplace_back(marker.pose.position.x, marker.pose.position.y);
+        for (const auto &point : pcl_cloud.points) {
+            leg_positions.emplace_back(point.x, point.y);
         }
 
         // Find clusters of legs with 3 or more legs
         auto chair_clusters = findChairClusters(leg_positions);
 
-        // Create MarkerArray for recognized chairs
-        MarkerArray chair_markers;
-        for (size_t i = 0; i < chair_clusters.size(); ++i) {
-            auto [center_x, center_y] = calculateCenter(chair_clusters[i]);
-            chair_markers.markers.push_back(createMarker(center_x, center_y, i));
+        // Publish the recognized chair pose
+        for (const auto &cluster : chair_clusters) {
+            auto pose = calculatePose(cluster);
+            chair_publisher_->publish(pose);
         }
-
-        // Publish the recognized chairs
-        chair_publisher_->publish(chair_markers);
     }
 
     std::vector<std::vector<std::pair<double, double>>> findChairClusters(const std::vector<std::pair<double, double>> &leg_positions) {
@@ -79,43 +82,38 @@ private:
         );
     }
 
-    std::pair<double, double> calculateCenter(const std::vector<std::pair<double, double>> &cluster) {
+    PoseStamped calculatePose(const std::vector<std::pair<double, double>> &cluster) {
+        // Calculate center
         double x_sum = 0.0, y_sum = 0.0;
         for (const auto &pos : cluster) {
             x_sum += pos.first;
             y_sum += pos.second;
         }
-        return {x_sum / cluster.size(), y_sum / cluster.size()};
+        double center_x = x_sum / cluster.size();
+        double center_y = y_sum / cluster.size();
+
+        // Calculate orientation (from first leg to second leg in cluster)
+        double dx = cluster[1].first - cluster[0].first;
+        double dy = cluster[1].second - cluster[0].second;
+        double yaw = std::atan2(dy, dx);
+
+        // Create PoseStamped
+        PoseStamped pose;
+        pose.header.frame_id = "map";
+        pose.header.stamp = this->get_clock()->now();
+        pose.pose.position.x = center_x;
+        pose.pose.position.y = center_y;
+        pose.pose.position.z = 0.0;
+        pose.pose.orientation.x = 0.0;
+        pose.pose.orientation.y = 0.0;
+        pose.pose.orientation.z = std::sin(yaw / 2.0);
+        pose.pose.orientation.w = std::cos(yaw / 2.0);
+
+        return pose;
     }
 
-    Marker createMarker(double x, double y, int marker_id) {
-        Marker marker;
-        marker.header.frame_id = "laser";
-        marker.header.stamp = this->get_clock()->now();
-        marker.ns = "chairs";
-        marker.id = marker_id;
-        marker.type = Marker::SPHERE;
-        marker.action = Marker::ADD;
-        marker.pose.position.x = x;
-        marker.pose.position.y = y;
-        marker.pose.position.z = 0.0;
-        marker.pose.orientation.x = 0.0;
-        marker.pose.orientation.y = 0.0;
-        marker.pose.orientation.z = 0.0;
-        marker.pose.orientation.w = 1.0;
-        marker.scale.x = 0.1;
-        marker.scale.y = 0.1;
-        marker.scale.z = 0.1;
-        marker.color.a = 1.0;
-        marker.color.r = 1.0;
-        marker.color.g = 1.0;
-        marker.color.b = 0.0;
-        marker.lifetime = rclcpp::Duration(std::chrono::duration<double>(0.5));
-        return marker;
-    }
-
-    rclcpp::Subscription<MarkerArray>::SharedPtr marker_subscriber_;
-    rclcpp::Publisher<MarkerArray>::SharedPtr chair_publisher_;
+    rclcpp::Subscription<PointCloud2>::SharedPtr pointcloud_subscriber_;
+    rclcpp::Publisher<PoseStamped>::SharedPtr chair_publisher_;
 };
 
 int main(int argc, char **argv) {
