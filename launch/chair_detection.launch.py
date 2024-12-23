@@ -44,6 +44,6 @@ def generate_launch_description():
     ld.add_action(scan_to_pointcloud)
     ld.add_action(leg_detecor)
     ld.add_action(chair_detecor)
-    ld.add_action(laser_filter)
+    #ld.add_action(laser_filter)
 
     return ld
