@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(chair_detection)
+project(chair_detector)
 
 # ポリシーの設定
 if(POLICY CMP0074)
