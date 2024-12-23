@@ -34,11 +34,11 @@ def generate_launch_description():
         #parameters=[]
     )
 
-    laser_filter = Node(
-        package   = 'laser_filters',
-        executable= 'scan_to_scan_filter_chain',
-        parameters=['/home/oumuika/Documents/mirs2403/src/chair_detector/config/range_filter.yaml'],
-    )
+    #laser_filter = Node(
+    #    package   = 'laser_filters',
+    #    executable= 'scan_to_scan_filter_chain',
+    #    parameters=['/home/oumuika/Documents/mirs2403/src/chair_detector/config/range_filter.yaml'],
+    #)
 
     ld = LaunchDescription()
     ld.add_action(scan_to_pointcloud)
