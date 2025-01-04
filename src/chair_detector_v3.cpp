@@ -95,10 +95,21 @@ private:
         double center_x = x_sum / cluster.size();
         double center_y = y_sum / cluster.size();
 
-        // 姿勢を計算（クラスター内の最初の脚から2番目の脚まで）
-        double dx = cluster[1].first - cluster[0].first;
-        double dy = cluster[1].second - cluster[0].second;
-        double yaw = std::atan2(dy, dx);
+        // 姿勢を計算（クラスター内の隣り合う脚同士の間を合計4回計算）
+        double best_yaw = 0.0;
+        double min_angle_diff = std::numeric_limits<double>::max();
+        for (size_t i = 0; i < cluster.size(); ++i) {
+            size_t j = (i + 1) % cluster.size();
+            double dx = cluster[j].first - cluster[i].first;
+            double dy = cluster[j].second - cluster[i].second;
+            double yaw = std::atan2(dy, dx);
+            double angle_diff = std::abs(yaw);
+            if (angle_diff < min_angle_diff) {
+            min_angle_diff = angle_diff;
+            best_yaw = yaw;
+            }
+        }
+        double yaw = best_yaw;
 
         // 最終的にパブリッシュする位置は椅子の中心よりも50cm後ろにする
         center_x -= 0.5 * std::cos(yaw);
