@@ -4,6 +4,8 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
 #include <vector>
 #include <cmath>
 #include <algorithm>
@@ -21,6 +23,7 @@ public:
 
         // 椅子の位置姿勢のパブリッシュ
         chair_publisher_ = this->create_publisher<PoseStamped>("chair_pose", 10);
+        
     }
 
 private:
@@ -86,6 +89,7 @@ private:
     }
 
     PoseStamped calculatePose(const std::vector<std::pair<double, double>> &cluster) {
+
         // 中心を計算
         double x_sum = 0.0, y_sum = 0.0;
         for (const auto &pos : cluster) {
@@ -114,9 +118,18 @@ private:
         // 最終的にパブリッシュする位置は椅子の中心よりも50cm後ろにする
         center_x -= 0.5 * std::cos(yaw);
 
+        // poseをmap座標系に変換
+        geometry_msgs::msg::TransformStamped transform;
+        try {
+            transform = tf_buffer_->lookupTransform("map", "base_link", tf2::TimePointZero);
+        } catch (tf2::TransformException &ex) {
+            RCLCPP_ERROR(this->get_logger(), "Transform error: %s", ex.what());
+            return PoseStamped();
+        }
+
         // PoseStampedを作成
         PoseStamped pose;
-        pose.header.frame_id = "map";
+        pose.header.frame_id = "base_link";
         pose.header.stamp = this->get_clock()->now();
         pose.pose.position.x = center_x;
         pose.pose.position.y = center_y;
