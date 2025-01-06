@@ -42,7 +42,7 @@ ament_target_dependencies(leg_detector
 add_executable(scan_to_pointcloud src/scan_to_pointcloud.cpp)
 ament_target_dependencies(scan_to_pointcloud rclcpp sensor_msgs laser_geometry)
 
-add_executable(chair_detector src/chair_detector_v2.cpp)
+add_executable(chair_detector src/chair_detector_v3.cpp)
 target_link_libraries(chair_detector 
   ${PCL_LIBRARIES}
 )
