@@ -20,6 +20,7 @@ find_package(visualization_msgs REQUIRED)  # 追加
 find_package(laser_geometry REQUIRED)
 find_package(tf2 REQUIRED)  # tf2を追加
 find_package(tf2_ros REQUIRED)  # tf2_rosも追加
+find_package(tf2_geometry_msgs REQUIRED)
 
 include_directories(
   ${PCL_INCLUDE_DIRS}
@@ -50,6 +51,9 @@ ament_target_dependencies(chair_detector
   sensor_msgs
   pcl_conversions
   visualization_msgs
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
 )
 
 # インストールの設定

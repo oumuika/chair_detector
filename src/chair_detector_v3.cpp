@@ -4,18 +4,20 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
-#include <tf2_ros/buffer.h>
-#include <tf2_ros/transform_listener.h>
 #include <vector>
 #include <cmath>
 #include <algorithm>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 using sensor_msgs::msg::PointCloud2;
 using geometry_msgs::msg::PoseStamped;
 
 class ChairRecognitionNode : public rclcpp::Node {
 public:
-    ChairRecognitionNode() : Node("chair_recognition") {
+    ChairRecognitionNode() : Node("chair_recognition"), tf_buffer_(this->get_clock()), tf_listener_(tf_buffer_) {
         // 椅子の脚候補のサブスクライブ
         pointcloud_subscriber_ = this->create_subscription<PointCloud2>(
             "chair_legs", 10, std::bind(&ChairRecognitionNode::legsCallback, this, std::placeholders::_1)
@@ -23,7 +25,6 @@ public:
 
         // 椅子の位置姿勢のパブリッシュ
         chair_publisher_ = this->create_publisher<PoseStamped>("chair_pose", 10);
-        
     }
 
 private:
@@ -44,6 +45,7 @@ private:
         // 認識された椅子の姿勢をパブリッシュ
         for (const auto &cluster : chair_clusters) {
             auto pose = calculatePose(cluster);
+            transformPoseToMapFrame(pose);
             chair_publisher_->publish(pose);
         }
     }
@@ -89,7 +91,6 @@ private:
     }
 
     PoseStamped calculatePose(const std::vector<std::pair<double, double>> &cluster) {
-
         // 中心を計算
         double x_sum = 0.0, y_sum = 0.0;
         for (const auto &pos : cluster) {
@@ -118,15 +119,6 @@ private:
         // 最終的にパブリッシュする位置は椅子の中心よりも50cm後ろにする
         center_x -= 0.5 * std::cos(yaw);
 
-        // poseをmap座標系に変換
-        geometry_msgs::msg::TransformStamped transform;
-        try {
-            transform = tf_buffer_->lookupTransform("map", "base_link", tf2::TimePointZero);
-        } catch (tf2::TransformException &ex) {
-            RCLCPP_ERROR(this->get_logger(), "Transform error: %s", ex.what());
-            return PoseStamped();
-        }
-
         // PoseStampedを作成
         PoseStamped pose;
         pose.header.frame_id = "base_link";
@@ -142,8 +134,23 @@ private:
         return pose;
     }
 
+    void transformPoseToMapFrame(PoseStamped &pose) {
+        try {
+            // tf2を使ってbase_linkからmapへの変換を取得
+            geometry_msgs::msg::TransformStamped transform_stamped = tf_buffer_.lookupTransform("map", "base_link", tf2::TimePointZero);
+
+            // 変換を適用
+            tf2::doTransform(pose, pose, transform_stamped);
+            pose.header.frame_id = "map";
+        } catch (tf2::TransformException &ex) {
+            RCLCPP_WARN(this->get_logger(), "Could not transform pose to map frame: %s", ex.what());
+        }
+    }
+
     rclcpp::Subscription<PointCloud2>::SharedPtr pointcloud_subscriber_;
     rclcpp::Publisher<PoseStamped>::SharedPtr chair_publisher_;
+    tf2_ros::Buffer tf_buffer_;
+    tf2_ros::TransformListener tf_listener_;
 };
 
 int main(int argc, char **argv) {
